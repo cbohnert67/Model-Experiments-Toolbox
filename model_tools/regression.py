@@ -78,7 +78,7 @@ class Tester:
                  encoding_strategy="onehot", inputing_strategy="mean",
                  scaling_strategy="standard", transforming_strategy=False):
         """
-           Constructs all the necessary attributes for the test object and fits the model with given configuration.
+           Constructs all the necessary attributes for the Test object and fits the model with given configuration.
 
            :param model: a scikit-learn regressor.
            :param data: a pandas dataframe.
@@ -258,15 +258,31 @@ class Tester:
 
 class KFoldCrossValidator:
     """
-        Class that helps to quickly cross validate
-        a model with different features
+        A class to represent a KFoldCrossValidator.
 
+        A KFoldCrossValidator is a custom pipeline, given a model, data and features, for solving a regression task.
+
+        A KFoldCrossValidator uses KFold Cross Validation with given folds number.
     """
 
-    def __init__(self, model, data, features, target, train_size=0.8,
+    def __init__(self, model, data, features, target, train_size=1.0,
                  encoding_strategy="onehot", inputing_strategy="mean",
                  scaling_strategy="standard", transforming_strategy=False,
                  cv_folds=5):
+        """
+           Constructs all the necessary attributes for the KFoldCrossValidator object and fits the model with given configuration.
+
+           :param model: a scikit-learn regressor.
+           :param data: a pandas dataframe.
+           :param features: a list of feature strings.
+           :param target: a target string.
+           :param train_size: a size for a train /test split.
+           :param encoding_strategy: a string for encoding strategy decision.
+           :param inputing_strategy: a string for inputing strategy decision.
+           :param scaling_strategy: a string for scaling strategy decision.
+           :param transforming strategy: a boolean for transforming strategy decision.
+           :param cv_folds: a int representing the number k of folds.
+        """
         self.model = model
         self.data = data
         self.features = features
@@ -286,11 +302,19 @@ class KFoldCrossValidator:
         self._cross_validate()
 
     def _spliter(self):
+        """ 
+           Splits the data according to train/test size.
+        """
+
         self.train, self.test = train_test_split(
             self.data, train_size=self.train_size,
                                    random_state=0)
 
     def _numerical_transformer(self):
+        """
+           Returns a custom numerical transformer.
+        """
+
         if not self.transforming_strategy:
             if self.scaling_strategy == "standard":
                 return Pipeline(steps=[
@@ -309,6 +333,10 @@ class KFoldCrossValidator:
                  ])
 
     def _categorical_transformer(self):
+        """
+           Returns a custom categorical transformer.
+        """
+
         if self.encoding_strategy == "onehot":
             return Pipeline(steps=[
                 ('encoder', OneHotEncoder()),
@@ -323,6 +351,10 @@ class KFoldCrossValidator:
                 ])
 
     def _modeler(self):
+        """
+           Returns a custom model pipeline.
+        """
+
         preprocessor = ColumnTransformer(transformers=[
             ('num', self._numerical_transformer(), self.numerical_features),
             ('cat', self._categorical_transformer(), self.categorical_features),
@@ -340,6 +372,9 @@ class KFoldCrossValidator:
                                    method='yeo-johnson', standardize=True))
 
     def _cross_validate(self):
+        """
+           Cross validates custom model pipeline with given data and set of features.
+        """
         self._spliter()
         self.scores = cross_validate(self._modeler(),
                             self.train[self.features],
@@ -351,38 +386,75 @@ class KFoldCrossValidator:
                             n_jobs=-1)
 
     def get_average_rmse(self):
+        """
+            Returns the average RMSE.
+        """
         return np.mean(np.sqrt(-self.scores['test_neg_mean_squared_error']))
 
     def get_sd_rmse(self):
+        """
+            Returns the RMSE standard deviation.
+        """
         return np.std(np.sqrt(-self.scores['test_neg_mean_squared_error']))
 
     def get_average_mae(self):
+        """
+            Returns the average MAE.
+        """
         return np.mean(-self.scores['test_neg_mean_absolute_error'])
 
     def get_sd_mae(self):
+        """
+            Returns the MAE standard deviation.
+        """
         return np.std(-self.scores['test_neg_mean_absolute_error'])
 
     def get_average_r2(self):
+        """
+            Returns the average R2.
+        """
         return np.mean(self.scores['test_r2'])
 
     def get_sd_r2(self):
+        """
+            Returns the R2 standard deviation.
+        """
         return np.std(self.scores['test_r2'])
 
     def get_summary(self):
+        """
+            Prints the cross validation scores summary.
+        """
         print("RMSE: ", self.get_average_rmse(), "(", self.get_sd_rmse(), ")")
         print("MAE: ", self.get_average_mae(), "(", self.get_sd_mae(), ")")
         print("R2: ", self.get_average_r2(), "(", self.get_sd_r2(), ")")
 
 class LOOCrossValidator:
     """
-        Class that helps to quickly cross validate
-        a model with different features
+        A class to represent a LOOCrossValidator.
 
+        A LOOCrossValidator is a custom pipeline, given a model, data and features, for solving a regression task.
+
+        A LOOCrossValidator uses LOOCV.
     """
 
-    def __init__(self, model, data, features, target, train_size=0.8,
+    def __init__(self, model, data, features, target, train_size=1.0,
                  encoding_strategy="onehot", inputing_strategy="mean",
                  scaling_strategy="standard", transforming_strategy=False):
+        """
+           Constructs all the necessary attributes for the LOOCrossValidator object and fits the model with given configuration.
+
+           :param model: a scikit-learn regressor.
+           :param data: a pandas dataframe.
+           :param features: a list of feature strings.
+           :param target: a target string.
+           :param train_size: a size for a train /test split.
+           :param encoding_strategy: a string for encoding strategy decision.
+           :param inputing_strategy: a string for inputing strategy decision.
+           :param scaling_strategy: a string for scaling strategy decision.
+           :param transforming strategy: a boolean for transforming strategy decision.
+        """
+
         self.model = model
         self.data = data
         self.features = features
@@ -396,10 +468,23 @@ class LOOCrossValidator:
                                         include=['int64', 'float64']).columns
         self.categorical_features = self.data[features].select_dtypes(
                                                     include=['object']).columns
+        self.train = np.array([])
+        self.test = np.array([])
         self._cross_validate()
 
+    def _spliter(self):
+        """ 
+           Splits the data according to train/test size.
+        """
+        
+        self.train, self.test = train_test_split(
+            self.data, train_size=self.train_size,
+                                   random_state=0)
 
     def _numerical_transformer(self):
+        """
+           Returns a custom numerical transformer.
+        """
         if not self.transforming_strategy:
             if self.scaling_strategy == "standard":
                 return Pipeline(steps=[
@@ -418,6 +503,9 @@ class LOOCrossValidator:
                  ])
 
     def _categorical_transformer(self):
+        """
+           Returns a custom categorical transformer.
+        """
         if self.encoding_strategy == "onehot":
             return Pipeline(steps=[
                 ('encoder', OneHotEncoder()),
@@ -432,6 +520,9 @@ class LOOCrossValidator:
                 ])
 
     def _modeler(self):
+        """
+           Returns a custom model pipeline.
+        """
         preprocessor = ColumnTransformer(transformers=[
             ('num', self._numerical_transformer(), self.numerical_features),
             ('cat', self._categorical_transformer(), self.categorical_features),
@@ -449,9 +540,13 @@ class LOOCrossValidator:
                                    method='yeo-johnson', standardize=True))
 
     def _cross_validate(self):
+        """
+           Cross validates custom model pipeline with given data and set of features.
+        """
+        self._spliter()
         self.scores = cross_validate(self._modeler(),
-                            self.data[self.features],
-                            self.data[self.target],
+                            self.train[self.features],
+                            self.train[self.target],
                             scoring=["neg_mean_squared_error",
                                      "neg_mean_absolute_error",
                                     ],
@@ -459,18 +554,33 @@ class LOOCrossValidator:
                             n_jobs=-1)
 
     def get_average_rmse(self):
+        """
+            Returns the average RMSE.
+        """
         return np.mean(np.sqrt(-self.scores['test_neg_mean_squared_error']))
 
     def get_sd_rmse(self):
+        """
+            Returns the RMSE standard deviation.
+        """
         return np.std(np.sqrt(-self.scores['test_neg_mean_squared_error']))
 
     def get_average_mae(self):
+        """
+            Returns the average MAE.
+        """
         return np.mean(-self.scores['test_neg_mean_absolute_error'])
 
     def get_sd_mae(self):
+        """
+            Returns the MAE standard deviation.
+        """
         return np.std(-self.scores['test_neg_mean_absolute_error'])
 
     def get_summary(self):
+        """
+            Prints the cross validation scores summary.
+        """
         print("RMSE: ", self.get_average_rmse(), "(", self.get_sd_rmse(), ")")
         print("MAE: ", self.get_average_mae(), "(", self.get_sd_mae(), ")")
 
@@ -481,12 +591,21 @@ class LOOCrossValidator:
 
 class Explorer:
     """
-        Class used to explore regressors with
-        various settings using cross validation
+        A class to represent an Explorer.
 
+        An Explorer is a tools for exploring various settings using KFold Cross validation or LOOCV.
     """
 
     def __init__(self, regressors, settings, data, target, loocv=False):
+        """
+           Constructs all the necessary attributes for the Explorer object and fits the model with given settings.
+
+           :param regressors: a list of scikit-learn regressors.
+           :param settings: a list of settings.
+           :param data: a pandas dataframe.
+           :param target: a target string.
+           :param loocv: a boolean for LOOCV.
+        """
         self.regressors = regressors
         self.settings = settings
         self.data = data
@@ -497,6 +616,9 @@ class Explorer:
         self.results_df = pd.DataFrame()
 
     def _explore_settings(self, model):
+        """
+            Explores the differents settings.
+        """
         if not self.loocv:
             results = {'model': [], 'features': [], 'inputing': [], 'encoding': [],
                        'scaling': [], 'transforming': [], 'R2': [],
@@ -553,6 +675,9 @@ class Explorer:
         self.results = results
 
     def get_results(self):
+        """
+            Returns the results of exploration as a Pandas DataFrame.
+        """
         for name, reg in self.regressors.items():
             self._explore_settings(reg)
             names = [name]*len(self.settings)
@@ -563,15 +688,31 @@ class Explorer:
 
 class RandomizedSearchCrossValidator:
     """
-        Class that helps to quickly cross validate
-        a model with different features
+        A class to represent a RandomizedSearchCrossValidator.
 
+        A RandomizedSearchCrossValidator is a custom pipeline, given a model, data and features, for solving a regression task.
+
+        A RandomizedSearchCrossValidator uses Randomized Search Cross validation for hyperparameters optimization.
     """
 
     def __init__(self, model, data, features, target, train_size=0.8,
                  encoding_strategy="onehot", inputing_strategy="mean",
                  scaling_strategy="standard", transforming_strategy=False,
                  params_distribution={}):
+        """
+           Constructs all the necessary attributes for the RandomizedSearchCrossValidator object and fits the model with given configuration.
+
+           :param model: a scikit-learn regressor.
+           :param data: a pandas dataframe.
+           :param features: a list of feature strings.
+           :param target: a target string.
+           :param train_size: a size for a train /test split.
+           :param encoding_strategy: a string for encoding strategy decision.
+           :param inputing_strategy: a string for inputing strategy decision.
+           :param scaling_strategy: a string for scaling strategy decision.
+           :param transforming strategy: a boolean for transforming strategy decision.
+           :param params_distribution: a dictionary of hyperpameters distribution.
+        """
         self.model = model
         self.data = data
         self.features = features
@@ -593,11 +734,17 @@ class RandomizedSearchCrossValidator:
         self._cross_validate()
 
     def _spliter(self):
+        """ 
+           Splits the data according to train/test size.
+        """
         self.train, self.test = train_test_split(
             self.data, train_size=self.train_size,
                                    random_state=0)
 
     def _numerical_transformer(self):
+        """
+           Returns a custom numerical transformer.
+        """
         if not self.transforming_strategy:
             if self.scaling_strategy == "standard":
                 return Pipeline(steps=[
@@ -616,6 +763,9 @@ class RandomizedSearchCrossValidator:
                  ])
 
     def _categorical_transformer(self):
+        """
+           Returns a custom categorical transformer.
+        """
         if self.encoding_strategy == "onehot":
             return Pipeline(steps=[
                 ('encoder', OneHotEncoder()),
@@ -630,6 +780,9 @@ class RandomizedSearchCrossValidator:
                 ])
 
     def _modeler(self):
+        """
+           Returns a custom model pipeline.
+        """
         preprocessor = ColumnTransformer(transformers=[
             ('num', self._numerical_transformer(), self.numerical_features),
             ('cat', self._categorical_transformer(), self.categorical_features),
@@ -647,6 +800,9 @@ class RandomizedSearchCrossValidator:
                                    method='yeo-johnson', standardize=True))
 
     def _cross_validate(self):
+        """
+           Cross validates custom model pipeline with given data and set of features.
+        """
         self._spliter()
         self.search_cv = RandomizedSearchCV(self._modeler(),
                             self.params_distribution,
@@ -656,6 +812,9 @@ class RandomizedSearchCrossValidator:
         self.search_cv.fit(self.train[self.features], self.train[self.target])
 
     def get_results(self):
+        """
+            Returns the results of hyperparameters searching as a Pandas DataFrame.
+        """
         columns = [f"param_{name}" for name in self.params_distribution.keys()]
         columns += ["mean_test_error", "std_test_error"]
         self.cv_results = pd.DataFrame(self.search_cv.cv_results_)
