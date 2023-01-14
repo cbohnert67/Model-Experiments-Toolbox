@@ -823,3 +823,139 @@ class RandomizedSearchCrossValidator:
         self.cv_results[columns].sort_values(by="mean_test_error")
         return self.cv_results
         
+class GridSearchCrossValidator:
+    """
+        A class to represent a GridSearchCrossValidator.
+
+        A GridSearchCrossValidator is a custom pipeline, given a model, data and features, for solving a regression task.
+
+        A GridSearchCrossValidator uses Grid Search Cross validation for hyperparameters optimization.
+    """
+
+    def __init__(self, model, data, features, target, train_size=0.8,
+                 encoding_strategy="onehot", inputing_strategy="mean",
+                 scaling_strategy="standard", transforming_strategy=False,
+                 params_distribution={}):
+        """
+           Constructs all the necessary attributes for the RandomizedSearchCrossValidator object and fits the model with given configuration.
+
+           :param model: a scikit-learn regressor.
+           :param data: a pandas dataframe.
+           :param features: a list of feature strings.
+           :param target: a target string.
+           :param train_size: a size for a train /test split.
+           :param encoding_strategy: a string for encoding strategy decision.
+           :param inputing_strategy: a string for inputing strategy decision.
+           :param scaling_strategy: a string for scaling strategy decision.
+           :param transforming strategy: a boolean for transforming strategy decision.
+           :param params_distribution: a dictionary of hyperpameters distribution.
+        """
+        self.model = model
+        self.data = data
+        self.features = features
+        self.target = target
+        self.train_size = train_size
+        self.encoding_strategy = encoding_strategy
+        self.inputing_strategy = inputing_strategy
+        self.scaling_strategy = scaling_strategy
+        self.transforming_strategy = transforming_strategy
+        self.params_distribution = params_distribution
+        self.numerical_features = self.data[features].select_dtypes(
+                                        include=['int64', 'float64']).columns
+        self.categorical_features = self.data[features].select_dtypes(
+                                                    include=['object']).columns
+        self.train = np.array([])
+        self.test = np.array([])
+        self.search_cv = None
+        self.cv_results = pd.DataFrame({})
+        self._cross_validate()
+
+    def _spliter(self):
+        """ 
+           Splits the data according to train/test size.
+        """
+        self.train, self.test = train_test_split(
+            self.data, train_size=self.train_size,
+                                   random_state=0)
+
+    def _numerical_transformer(self):
+        """
+           Returns a custom numerical transformer.
+        """
+        if not self.transforming_strategy:
+            if self.scaling_strategy == "standard":
+                return Pipeline(steps=[
+                ('imputer', SimpleImputer(strategy=self.inputing_strategy)),
+                ('std_scaler', StandardScaler()),
+            ])
+            if self.scaling_strategy == "robust":
+                return Pipeline(steps=[
+                ('imputer', SimpleImputer(strategy=self.inputing_strategy)),
+                ('std_scaler', RobustScaler()),
+            ])
+        else:
+            return Pipeline(steps=[
+                ('imputer', SimpleImputer(strategy=self.inputing_strategy)),
+                ('transformer', PowerTransformer()),
+                 ])
+
+    def _categorical_transformer(self):
+        """
+           Returns a custom categorical transformer.
+        """
+        if self.encoding_strategy == "onehot":
+            return Pipeline(steps=[
+                ('encoder', OneHotEncoder()),
+                ('imputer', SimpleImputer(strategy='most_frequent')),
+                ('std_scaler', StandardScaler(with_mean=False)),
+                ])
+        if self.encoding_strategy == "target":
+            return Pipeline(steps=[
+                ('encoder', TargetEncoder()),
+                ('imputer', SimpleImputer(strategy='most_frequent')),
+                ('std_scaler', StandardScaler(with_mean=False)),
+                ])
+
+    def _modeler(self):
+        """
+           Returns a custom model pipeline.
+        """
+        preprocessor = ColumnTransformer(transformers=[
+            ('num', self._numerical_transformer(), self.numerical_features),
+            ('cat', self._categorical_transformer(), self.categorical_features),
+            ])
+        if not self.transforming_strategy:
+            return Pipeline(steps=[('preprocessor', preprocessor),
+                                        ('regressor', self.model)
+                                        ])
+        else:
+            modeling_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
+                                        ('regressor', self.model)
+                                        ])
+            return TransformedTargetRegressor(regressor=modeling_pipeline,
+                                            transformer=PowerTransformer(
+                                   method='yeo-johnson', standardize=True))
+
+    def _cross_validate(self):
+        """
+           Cross validates custom model pipeline with given data and set of features.
+        """
+        self._spliter()
+        self.search_cv = GridSearchCV(self._modeler(),
+                            self.params_distribution,
+                            scoring="r2",
+                            n_iter=20, random_state=0,
+                            n_jobs=-1)
+        self.search_cv.fit(self.train[self.features], self.train[self.target])
+
+    def get_results(self):
+        """
+            Returns the results of hyperparameters searching as a Pandas DataFrame.
+        """
+        columns = [f"param_{name}" for name in self.params_distribution.keys()]
+        columns += ["mean_test_error", "std_test_error"]
+        self.cv_results = pd.DataFrame(self.search_cv.cv_results_)
+        self.cv_results["mean_test_error"] = -self.cv_results["mean_test_score"]
+        self.cv_results["std_test_error"] = self.cv_results["std_test_score"]
+        self.cv_results[columns].sort_values(by="mean_test_error")
+        return self.cv_results
