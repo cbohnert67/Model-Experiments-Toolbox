@@ -42,14 +42,14 @@ class CustomPipeline:
         if self.setting.transforming_strategy in ["yeo-johnson", "box-cox"]:
             return Pipeline(steps=[
                 ('imputer', SimpleImputer(
-                strategy=self.setting.inputing_strategy)),
+                strategy=self.setting.num_inputing_strategy)),
                 ('transformer', PowerTransformer(method=self.setting.transforming_strategy, standardize=True)),
                  ])
         else:
             if self.setting.scaling_strategy == "standard":
                 return Pipeline(steps=[
                                     ('imputer', SimpleImputer(
-                                     strategy=self.setting.inputing_strategy)),
+                                     strategy=self.setting.num_inputing_strategy)),
                                     ('scaler', StandardScaler()),
                                     ])
             if self.setting.scaling_strategy == "robust":
@@ -84,24 +84,60 @@ class CustomPipeline:
         """
         Returns a custom model pipeline.
         """
-        features = self.data.features
-        preprocessor = ColumnTransformer(transformers=[
-            ('num', self._numerical_transformer(), features.select_dtypes(
-                                    include=['int64', 'float64']).columns),
-            ('cat', self._categorical_transformer(), features.select_dtypes(
-                                   include=['object']).columns),
-            ])
-        if self.transforming_strategy in ["yeo-johnson", "box-cox"]:
-            modeling_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
-                                      ('regressor', self.model)
-                                    ])
-            return TransformedTargetRegressor(regressor=modeling_pipeline,
-                                                transformer=PowerTransformer(
-                                        method='yeo-johnson', standardize=True))
-        else:
-            return Pipeline(steps=[('preprocessor', preprocessor),
-                                            ('regressor', self.model)
-                                            ])
+        numerical_columns = self.data.X_train[self.data.features].select_dtypes(
+                                    include=['int64', 'float64']).columns
+
+        categorical_columns = self.data.X_train[self.data.features].select_dtypes(
+                                   include=['object']).columns
+
+        if (len(numerical_columns)!=0) & (len(categorical_columns)!=0):
+            preprocessor = ColumnTransformer(transformers=[
+                ('num', self._numerical_transformer(), numerical_columns),
+                ('cat', self._categorical_transformer(), categorical_columns),
+                ])
+            if self.setting.transforming_strategy in ["yeo-johnson", "box-cox"]:
+                modeling_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
+                                        ('regressor', self.regressor.regressor)
+                                        ])
+                return TransformedTargetRegressor(regressor=modeling_pipeline,
+                                                    transformer=PowerTransformer(
+                                            method=self.setting.transforming_strategy, standardize=True))
+            else:
+                return Pipeline(steps=[('preprocessor', preprocessor),
+                                        ('regressor', self.regressor.regressor)
+                                                ])
+        if (len(numerical_columns)!=0) & (len(categorical_columns)==0):
+            preprocessor = ColumnTransformer(transformers=[
+                ('num', self._numerical_transformer(), numerical_columns),
+                ])
+            if self.setting.transforming_strategy in ["yeo-johnson", "box-cox"]:
+                modeling_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
+                                        ('regressor', self.regressor.regressor)
+                                        ])
+                return TransformedTargetRegressor(regressor=modeling_pipeline,
+                                                    transformer=PowerTransformer(
+                                            method=self.setting.transforming_strategy, standardize=True))
+            else:
+                return Pipeline(steps=[('preprocessor', preprocessor),
+                                        ('regressor', self.regressor.regressor)
+                                                ])
+        if (len(numerical_columns)==0) & (len(categorical_columns)!=0):
+            preprocessor = ColumnTransformer(transformers=[
+                    ('cat', self._categorical_transformer(), categorical_columns),
+                    ])
+            if self.setting.transforming_strategy in ["yeo-johnson", "box-cox"]:
+                modeling_pipeline = Pipeline(steps=[('preprocessor', preprocessor),
+                                        ('regressor', self.regressor.regressor)
+                                        ])
+                return TransformedTargetRegressor(regressor=modeling_pipeline,
+                                                    transformer=PowerTransformer(
+                                            method=self.setting.transforming_strategy, standardize=True))
+            else:
+                return Pipeline(steps=[('preprocessor', preprocessor),
+                                        ('regressor', self.regressor.regressor)
+                                                ])
+
+        
     def _fit_model(self):
         """
         Fits custom model pipeline with given data and set of features.
@@ -110,7 +146,7 @@ class CustomPipeline:
    
     def get_model(self):
         """
-        Returns the fit custom model.
+        Returns the custom model.
         """
         return self.model
 

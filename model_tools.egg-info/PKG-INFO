@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: model-tools
-Version: 0.0.1
+Version: 0.0.2
 Summary: A package for searching the best models in regression and classification problems.
 Author: Cédric Bohnert
 Author-email: cbohnert.datascience@gmail.com
