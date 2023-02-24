@@ -14,17 +14,16 @@ from yellowbrick.regressor import ResidualsPlot
 from yellowbrick.regressor import PredictionError
 import numpy as np
 
-class BasicToolBox:
+class CustomPipeline:
     """
-        A class representing a BasicToolBox.
+        A class representing a CustomPipeline.
 
-        A BasicToolBox is an Regressor altogether with a Data and a Setting objects. 
-        A custom pipeline is build with the Setting object and the Regressor is trained using the Data object. 
-        RMSE and MAE are given and a Yellowbrick visualizer is showed.
+        A CustomPipeline is built with the Setting object and the Regressor is trained using the Data object. 
+        Performance scores are computed such as RMSE and MAE and a Yellowbrick visualizer is showed.
     """
     def __init__(self, regressor, data, setting):
         """
-           Constructs all the necessary attributes for the BasicToolBox object.
+           Constructs all the necessary attributes for the CustomPipeline object.
 
            :param regressor: a regressor object.
            :param data: a Data object.
@@ -54,13 +53,13 @@ class BasicToolBox:
             if self.setting.scaling_strategy == "robust":
                 return Pipeline(steps=[
                         ('imputer', SimpleImputer(
-                        strategy=self.setting.inputing_strategy)),
+                        strategy=self.setting.num_inputing_strategy)),
                         ('scaler', RobustScaler()),
                         ])  
             if self.setting.scaling_strategy == "minmax":
                 return Pipeline(steps=[
                         ('imputer', SimpleImputer(
-                        strategy=self.setting.inputing_strategy)),
+                        strategy=self.setting.num_inputing_strategy)),
                         ('scaler', MinMaxScaler()),
                         ])              
     def _categorical_transformer(self):
@@ -69,13 +68,13 @@ class BasicToolBox:
         """
         if self.setting.encoding_strategy == "onehot":
             return Pipeline(steps=[
-                ('imputer', SimpleImputer(strategy='most_frequent')),
+                ('imputer', SimpleImputer(strategy=self.setting.cat_inputing_strategy)),
                 ('encoder', OneHotEncoder()),
                 ('std_scaler', StandardScaler(with_mean=False)),
                 ])
         if self.setting.encoding_strategy == "target":
             return Pipeline(steps=[
-                ('imputer', SimpleImputer(strategy='most_frequent')),
+                ('imputer', SimpleImputer(strategy=self.setting.cat_inputing_strategy)),
                 ('encoder', TargetEncoder()),
                 ('std_scaler', StandardScaler(with_mean=False)),
                 ])
@@ -106,9 +105,9 @@ class BasicToolBox:
             Fits custom model pipeline with given data and set of features.
             """
             self.fit_model = self._modeler().fit(self.data.X_train, self.data.y_train)
-        def get_fitted_model(self):
+        def get_fit_model(self):
             """
-            Returns the fitted custom model.
+            Returns the fit custom model.
             """
             return self.fit_model
 
@@ -135,6 +134,12 @@ class BasicToolBox:
             Returns the RMSE score.
             """
             return np.sqrt(mean_squared_error(self.data.y_test, self.get_prediction()))
+        
+        def get_mae(self):
+            """
+            Returns the MAE score.
+            """
+            return mean_absolute_error(self.data.y_test, self.get_prediction())
 
         def show_scores(self):
             """
@@ -143,6 +148,7 @@ class BasicToolBox:
             print("Model training score:", self.get_train_score())
             print("Model prediction score:", self.get_test_score())
             print("Model RMSE:", self.get_rmse())
+            print("Model MAE:", self.get_mae())
 
         def show_residuals(self):
             """

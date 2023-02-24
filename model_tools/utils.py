@@ -54,7 +54,7 @@ class Setting:
     """
         A class that builds a Setting object
     """
-    def __init__(self, name="setting0", encoding_strategy="one-hot", inputing_strategy="mean", scaling_strategy="standard", transforming_strategy="yeo-johnson"):
+    def __init__(self, name="setting0", encoding_strategy="one-hot", num_inputing_strategy="mean", cat_inputing_strategy='most_frequent', scaling_strategy="standard", transforming_strategy="yeo-johnson"):
         """
            Constructs all the necessary attributes for the Setting object.
            :param encoding_strategy: a string for encoding strategy decision.
@@ -64,6 +64,7 @@ class Setting:
         """
         self.name = name
         self.encoding_strategy = encoding_strategy
-        self.inputing_strategy = inputing_strategy
+        self.num_inputing_strategy = num_inputing_strategy
+        self.cat_inputing_strategy = cat_inputing_strategy
         self.scaling_strategy = scaling_strategy
         self.transforming_strategy = transforming_strategy
