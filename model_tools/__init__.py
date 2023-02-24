@@ -1,1 +1,1 @@
-from .regression import Tester, KFoldCrossValidator, LOOCrossValidator, Explorer, RandomizedSearchCrossValidator, GridSearchCrossValidator
+from .regression_old import Tester, KFoldCrossValidator, LOOCrossValidator, Explorer, RandomizedSearchCrossValidator, GridSearchCrossValidator
